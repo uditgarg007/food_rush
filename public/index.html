@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FoodRush — Order Food Online</title>
+  <meta name="description" content="Order food from the best restaurants near you. Fast delivery, great food."/>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .features { background: white; padding: 80px 0; }
+    .feature-card { text-align: center; padding: 32px 24px; }
+    .feature-icon { font-size: 3rem; margin-bottom: 16px; }
+    .how-it-works { background: var(--bg); padding: 80px 0; }
+    .step { display: flex; gap: 24px; align-items: flex-start; padding: 24px 0; }
+    .step-num {
+      width: 50px; height: 50px; border-radius: 50%; background: var(--primary);
+      color: white; font-size: 1.3rem; font-weight: 800; display: grid; place-items: center; flex-shrink: 0;
+    }
+    .stats-bar { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); padding: 40px 0; }
+    .stat-item { text-align: center; color: white; }
+    .stat-item .num { font-size: 2.5rem; font-weight: 900; }
+    .stat-item .lbl { font-size: 0.9rem; opacity: 0.85; }
+    .footer { background: var(--dark); color: var(--gray-4); padding: 48px 0 24px; }
+    .footer-logo { color: var(--primary); font-size: 1.8rem; font-weight: 900; }
+    .footer-links { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; }
+    .footer-links a { color: var(--gray-3); font-size: 0.9rem; transition: color var(--t); }
+    .footer-links a:hover { color: var(--primary); }
+    .footer-bottom { border-top: 1px solid var(--dark-2); padding-top: 20px; margin-top: 32px; display: flex; justify-content: space-between; align-items: center; }
+    .restaurant-grid-section { padding: 60px 0; }
+    .skeleton-card { background: white; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .skeleton-img  { height: 200px; }
+    .skeleton-line { height: 16px; margin: 12px; border-radius: 4px; }
+    .skeleton-line.short { width: 60%; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/" class="navbar-logo">
+      <div class="logo-icon">🍱</div>
+      Food<span>Rush</span>
+    </a>
+    <div class="navbar-right">
+      <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+      <a href="/login.html?tab=register" class="btn btn-primary btn-sm">Sign Up Free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" style="padding-top: var(--navbar-height);">
+  <div class="container">
+    <div class="hero-content slide-up">
+      <h1>Hungry? <span>Great food</span><br/>delivered fast 🚀</h1>
+      <p>Discover the best restaurants near you. Order with ease, track in real-time, enjoy at home.</p>
+      <div class="search-bar" style="max-width:520px;">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="hero-search" placeholder="Search for restaurants or cuisines..." autocomplete="off"/>
+        <button class="btn btn-primary" id="hero-search-btn">Search</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
+        <a href="/login.html" class="btn btn-outline" style="border-color:rgba(255,255,255,0.5);color:white;">
+          🍽️ Order as Customer
+        </a>
+        <a href="/login.html?tab=register&role=restaurant_owner" class="btn btn-ghost" style="color:white;">
+          🏪 List your Restaurant
+        </a>
+        <a href="/login.html?tab=register&role=rider" class="btn btn-ghost" style="color:white;">
+          🛵 Ride with us
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Categories -->
+<section style="background:white; padding:40px 0;">
+  <div class="container">
+    <h2 style="margin-bottom:24px;">What are you craving?</h2>
+    <div class="category-scroll" id="home-categories">
+      <!-- Filled by JS -->
+      <div class="category-item"><div class="category-icon-wrap skeleton" style="width:64px;height:64px;"></div><div class="skeleton-line short" style="width:60px;height:12px;margin-top:8px;"></div></div>
+      <div class="category-item"><div class="category-icon-wrap skeleton" style="width:64px;height:64px;"></div><div class="skeleton-line short" style="width:60px;height:12px;margin-top:8px;"></div></div>
+      <div class="category-item"><div class="category-icon-wrap skeleton" style="width:64px;height:64px;"></div><div class="skeleton-line short" style="width:60px;height:12px;margin-top:8px;"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Featured Restaurants -->
+<section class="restaurant-grid-section">
+  <div class="container">
+    <div class="flex-between mb-24">
+      <div>
+        <h2 class="section-title">Popular Restaurants</h2>
+        <div class="section-line"></div>
+      </div>
+      <a href="/login.html" class="btn btn-outline btn-sm">View All →</a>
+    </div>
+    <div class="grid-auto" id="home-restaurants">
+      <!-- Skeletons -->
+      <div class="skeleton-card"><div class="skeleton skeleton-img"></div><div class="card-body"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div></div>
+      <div class="skeleton-card"><div class="skeleton skeleton-img"></div><div class="card-body"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div></div>
+      <div class="skeleton-card"><div class="skeleton skeleton-img"></div><div class="card-body"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats Bar -->
+<section class="stats-bar">
+  <div class="container">
+    <div class="grid-4">
+      <div class="stat-item"><div class="num">500+</div><div class="lbl">Restaurants</div></div>
+      <div class="stat-item"><div class="num">50K+</div><div class="lbl">Happy Customers</div></div>
+      <div class="stat-item"><div class="num">30 min</div><div class="lbl">Average Delivery</div></div>
+      <div class="stat-item"><div class="num">4.8 ⭐</div><div class="lbl">Average Rating</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- How it Works -->
+<section class="how-it-works">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:48px;">
+      <h2 class="section-title">How FoodRush works</h2>
+      <div class="section-line" style="margin:12px auto 0;"></div>
+    </div>
+    <div class="grid-3">
+      <div class="feature-card card" style="cursor:default;">
+        <div class="feature-icon">📍</div>
+        <h3>Choose a restaurant</h3>
+        <p>Browse hundreds of restaurants, filter by cuisine, rating or delivery time.</p>
+      </div>
+      <div class="feature-card card" style="cursor:default;">
+        <div class="feature-icon">🛒</div>
+        <h3>Select your meal</h3>
+        <p>Add items to your cart, customise and checkout in seconds — no fuss.</p>
+      </div>
+      <div class="feature-card card" style="cursor:default;">
+        <div class="feature-icon">🚀</div>
+        <h3>Get it delivered</h3>
+        <p>Track your order live from kitchen to doorstep with real-time updates.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- For Partners -->
+<section style="background: white; padding: 80px 0;">
+  <div class="container">
+    <div class="grid-2" style="gap:48px; align-items:center;">
+      <div>
+        <h2>Partner with FoodRush</h2>
+        <p style="margin:16px 0;">Whether you run a restaurant or want to deliver — we have a place for you.</p>
+        <div style="display:flex; flex-direction:column; gap:12px; margin-top:24px;">
+          <div class="flex gap-12">
+            <span style="font-size:1.5rem;">🏪</span>
+            <div><strong>Restaurant Owners</strong> — List your menu, manage orders, grow your business online.</div>
+          </div>
+          <div class="flex gap-12">
+            <span style="font-size:1.5rem;">🛵</span>
+            <div><strong>Delivery Riders</strong> — Set your own hours, earn per delivery, be your own boss.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:32px;">
+          <a href="/login.html?tab=register&role=restaurant_owner" class="btn btn-primary">List your Restaurant</a>
+          <a href="/login.html?tab=register&role=rider" class="btn btn-outline">Become a Rider</a>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:8rem;line-height:1;">🍱</div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <div class="grid-4" style="gap:32px;">
+      <div>
+        <div class="footer-logo">🍱 FoodRush</div>
+        <p style="font-size:0.88rem;margin-top:12px;">Delivering happiness, one meal at a time.</p>
+      </div>
+      <div>
+        <h4 style="color:white;margin-bottom:12px;">Company</h4>
+        <div class="footer-links flex-col gap-8">
+          <a href="#">About Us</a><a href="#">Careers</a><a href="#">Blog</a>
+        </div>
+      </div>
+      <div>
+        <h4 style="color:white;margin-bottom:12px;">Partners</h4>
+        <div class="footer-links flex-col gap-8">
+          <a href="/login.html?tab=register&role=restaurant_owner">Add your Restaurant</a>
+          <a href="/login.html?tab=register&role=rider">Become a Rider</a>
+        </div>
+      </div>
+      <div>
+        <h4 style="color:white;margin-bottom:12px;">Support</h4>
+        <div class="footer-links flex-col gap-8">
+          <a href="#">Help Center</a><a href="#">Terms</a><a href="#">Privacy</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p style="font-size:0.82rem;">© 2024 FoodRush. All rights reserved.</p>
+      <p style="font-size:0.82rem;">Made with ❤️ for food lovers</p>
+    </div>
+  </div>
+</footer>
+
+<div id="toast-container"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  // Redirect logged-in users
+  API.auth.me().then(user => redirectByRole(user.role)).catch(() => {});
+
+  // Load categories
+  API.categories.list().then(cats => {
+    const el = document.getElementById('home-categories');
+    el.innerHTML = cats.map(c => `
+      <div class="category-item" onclick="window.location='/login.html'">
+        <div class="category-icon-wrap">${c.icon}</div>
+        <div class="category-label">${c.name}</div>
+      </div>`).join('');
+  }).catch(() => {});
+
+  // Load featured restaurants
+  API.restaurants.list({ sort: 'rating' }).then(rests => {
+    const el = document.getElementById('home-restaurants');
+    if (!rests.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">🍽️</div><h3>No restaurants yet</h3></div>'; return; }
+    el.innerHTML = rests.slice(0, 6).map(r => `
+      <div class="card restaurant-card fade-in" onclick="window.location='/login.html'">
+        <div class="restaurant-card-img-wrap">
+          <img class="restaurant-card-img" src="${r.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600'}" alt="${r.name}" loading="lazy"/>
+          <span class="restaurant-card-badge ${r.is_open ? '' : 'closed'}">${r.is_open ? 'OPEN' : 'CLOSED'}</span>
+        </div>
+        <div class="card-body">
+          <div class="restaurant-info">
+            <div class="restaurant-name">${r.name}</div>
+            <div class="rating-pill">⭐ ${r.rating || '—'}</div>
+          </div>
+          <div class="cuisine-tag">${r.cuisine_type || ''}</div>
+          <div class="restaurant-meta">
+            <span>⏱️ ${r.delivery_time} min</span>
+            <span>🛵 ₹${parseFloat(r.delivery_fee || 30).toFixed(0)} delivery</span>
+          </div>
+        </div>
+      </div>`).join('');
+  }).catch(() => {});
+
+  // Hero search
+  document.getElementById('hero-search-btn').addEventListener('click', () => {
+    const q = document.getElementById('hero-search').value.trim();
+    window.location.href = '/login.html' + (q ? `?search=${encodeURIComponent(q)}` : '');
+  });
+  document.getElementById('hero-search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('hero-search-btn').click();
+  });
+</script>
+</body>
+</html>

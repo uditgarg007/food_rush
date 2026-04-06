@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Checkout — FoodRush</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .checkout-grid { display: grid; grid-template-columns: 1fr 380px; gap: 28px; align-items: flex-start; }
+    .order-summary-card { background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); position: sticky; top: calc(var(--navbar-height) + 24px); }
+    .cart-line-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-5); }
+    .cart-line-item:last-child { border-bottom: none; }
+    .empty-cart-btn { display: inline-flex; align-items: center; gap: 8px; }
+    .address-saved { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px solid var(--gray-4); border-radius: var(--radius-sm); cursor: pointer; transition: border-color var(--t); }
+    .address-saved:hover, .address-saved.selected { border-color: var(--primary); }
+    .address-saved.selected { background: rgba(226,55,68,0.04); }
+    @media(max-width:800px) { .checkout-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/customer/dashboard.html" class="navbar-logo"><div class="logo-icon">🍱</div>Food<span>Rush</span></a>
+    <div class="navbar-right">
+      <button class="btn btn-ghost btn-sm" data-action="logout">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="container">
+    <div class="flex gap-12 mb-24">
+      <a href="/customer/dashboard.html" class="btn btn-ghost btn-sm">← Back to Browse</a>
+      <h1 style="font-size:1.4rem;">Your Cart</h1>
+    </div>
+
+    <!-- Empty cart state -->
+    <div id="empty-cart" style="display:none;">
+      <div class="empty-state">
+        <div class="empty-icon">🛒</div>
+        <h3>Your cart is empty</h3>
+        <p>Add some delicious food to get started!</p>
+        <a href="/customer/dashboard.html" class="btn btn-primary mt-16">Browse Restaurants</a>
+      </div>
+    </div>
+
+    <!-- Checkout content -->
+    <div id="checkout-content" style="display:none;" class="checkout-grid">
+      <!-- Left: Address + Cart items -->
+      <div>
+        <!-- Cart Items -->
+        <div class="card mb-24">
+          <div class="card-header flex-between">
+            <div>
+              <h3 id="cart-restaurant-name">Cart</h3>
+              <p style="font-size:0.82rem;" id="cart-item-count"></p>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="clearEntireCart()" style="color:var(--primary);">Clear Cart</button>
+          </div>
+          <div class="card-body" id="cart-items-list"></div>
+        </div>
+
+        <!-- Delivery Address -->
+        <div class="card mb-24">
+          <div class="card-header">
+            <h3>Delivery Address</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label" for="delivery-address">Full Delivery Address *</label>
+              <textarea id="delivery-address" class="form-control" rows="3" placeholder="Flat 4B, Sunrise Apartments, MG Road, Bengaluru 560001"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Special Instructions -->
+        <div class="card">
+          <div class="card-header"><h3>Special Instructions</h3></div>
+          <div class="card-body">
+            <textarea id="special-instructions" class="form-control" rows="2" placeholder="Any specific cooking preferences or allergies? (optional)"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Order Summary -->
+      <div class="order-summary-card">
+        <div class="card-header" style="padding:20px 20px 0;">
+          <h3>Order Summary</h3>
+        </div>
+        <div class="card-body">
+          <div id="summary-items" style="margin-bottom:16px;"></div>
+          <hr class="divider"/>
+          <div class="flex-between mb-8"><span style="color:var(--gray-2);">Subtotal</span><span id="summary-subtotal" style="font-weight:600;"></span></div>
+          <div class="flex-between mb-8"><span style="color:var(--gray-2);">Delivery fee</span><span id="summary-fee" style="font-weight:600;"></span></div>
+          <hr class="divider"/>
+          <div class="flex-between" style="font-size:1.1rem;">
+            <span style="font-weight:700;">Total</span>
+            <span style="font-weight:800;color:var(--primary);" id="summary-total"></span>
+          </div>
+          <div style="background:rgba(61,155,61,0.1);border-radius:var(--radius-sm);padding:10px 14px;margin-top:16px;font-size:0.82rem;color:var(--accent-green);">
+            ✅ Free cancellation before order is accepted
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;" id="place-order-btn">
+            🚀 Place Order
+          </button>
+          <p style="font-size:0.78rem;color:var(--gray-3);text-align:center;margin-top:10px;">
+            By placing the order you agree to our Terms of Service.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  let cart, deliveryFee = 30;
+
+  async function init() {
+    await requireAuth(['customer']);
+    cart = Cart.get();
+    if (!cart || !cart.items.length) {
+      document.getElementById('empty-cart').style.display = '';
+      return;
+    }
+    document.getElementById('checkout-content').style.display = 'grid';
+    renderCart();
+    await fetchDeliveryFee();
+    renderSummary();
+  }
+
+  async function fetchDeliveryFee() {
+    try {
+      const { restaurant } = await API.restaurants.get(cart.restaurantId);
+      deliveryFee = parseFloat(restaurant.delivery_fee) || 30;
+    } catch {}
+  }
+
+  function renderCart() {
+    document.getElementById('cart-restaurant-name').textContent = '🍽️ ' + cart.restaurantName;
+    document.getElementById('cart-item-count').textContent = `${Cart.count()} items`;
+
+    const list = document.getElementById('cart-items-list');
+    list.innerHTML = cart.items.map(item => `
+      <div class="cart-line-item">
+        ${item.image_url ? `<img src="${item.image_url}" style="width:56px;height:50px;border-radius:8px;object-fit:cover;" alt=""/>` : ''}
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:0.9rem;">${item.name}</div>
+          <div style="font-size:0.82rem;color:var(--gray-3);">₹${parseFloat(item.price).toFixed(0)} each</div>
+        </div>
+        <div class="qty-control">
+          <button class="qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
+          <span class="qty-value">${item.quantity}</span>
+          <button class="qty-btn" onclick="changeQty(${item.id}, +1)">+</button>
+        </div>
+        <div style="font-weight:700;min-width:60px;text-align:right;">₹${(item.price * item.quantity).toFixed(0)}</div>
+      </div>`).join('');
+  }
+
+  function renderSummary() {
+    cart = Cart.get();
+    if (!cart) return;
+    const subtotal = Cart.total();
+    const total    = subtotal + deliveryFee;
+    document.getElementById('summary-items').innerHTML = cart.items.map(i =>
+      `<div class="flex-between mb-8 text-sm"><span>${i.name} × ${i.quantity}</span><span>₹${(i.price * i.quantity).toFixed(0)}</span></div>`
+    ).join('');
+    document.getElementById('summary-subtotal').textContent = '₹' + subtotal.toFixed(0);
+    document.getElementById('summary-fee').textContent      = '₹' + deliveryFee.toFixed(0);
+    document.getElementById('summary-total').textContent    = '₹' + total.toFixed(0);
+  }
+
+  function changeQty(itemId, delta) {
+    if (delta < 0) Cart.remove(itemId);
+    else {
+      cart = Cart.get();
+      const item = cart.items.find(i => i.id === itemId);
+      if (item) { item.quantity++; Cart.set(cart); }
+    }
+    cart = Cart.get();
+    if (!cart || !cart.items.length) { Cart.clear(); window.location.reload(); return; }
+    renderCart();
+    renderSummary();
+  }
+
+  function clearEntireCart() {
+    if (confirm('Clear your entire cart?')) { Cart.clear(); window.location.reload(); }
+  }
+
+  document.getElementById('place-order-btn').addEventListener('click', async () => {
+    cart = Cart.get();
+    const address = document.getElementById('delivery-address').value.trim();
+    const notes   = document.getElementById('special-instructions').value.trim();
+    if (!address) { toast('Please enter your delivery address', 'error'); return; }
+    if (!cart || !cart.items.length) { toast('Your cart is empty', 'error'); return; }
+
+    const btn = document.getElementById('place-order-btn');
+    btn.disabled = true; btn.textContent = 'Placing order…';
+
+    try {
+      const order = await API.orders.place({
+        restaurant_id: cart.restaurantId,
+        items: cart.items.map(i => ({ menu_item_id: i.id, quantity: i.quantity })),
+        delivery_address: address,
+        special_instructions: notes || undefined,
+      });
+      Cart.clear();
+      toast('Order placed successfully! 🎉', 'success');
+      setTimeout(() => { window.location.href = `/customer/orders.html?highlight=${order.id}`; }, 900);
+    } catch (err) {
+      toast(err.message, 'error');
+      btn.disabled = false; btn.textContent = '🚀 Place Order';
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

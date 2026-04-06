@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Restaurant Dashboard — FoodRush</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .order-col { background: white; border-radius: var(--radius-md); padding: 20px; min-height: 400px; }
+    .col-header { font-weight: 700; font-size: 1rem; padding-bottom: 14px; border-bottom: 2px solid var(--gray-5); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+    .rest-order-card { border: 1px solid var(--gray-5); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 12px; transition: all var(--t); }
+    .rest-order-card:hover { border-color: var(--primary-light); box-shadow: var(--shadow-xs); }
+    .order-actions { display: flex; gap-8px; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .orders-kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: flex-start; }
+    @media(max-width:1000px) { .orders-kanban { grid-template-columns: 1fr 1fr; } }
+    @media(max-width:600px)  { .orders-kanban { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/restaurant/dashboard.html" class="navbar-logo"><div class="logo-icon">🍱</div>Food<span>Rush</span></a>
+    <div class="navbar-nav">
+      <a href="/restaurant/dashboard.html" class="nav-link active">📋 Orders</a>
+      <a href="/restaurant/menu.html" class="nav-link">🍔 Menu</a>
+      <a href="/restaurant/profile.html" class="nav-link">⚙️ Profile</a>
+    </div>
+    <div class="navbar-right">
+      <div id="rest-open-toggle" style="display:flex;align-items:center;gap:10px;font-size:0.85rem;font-weight:600;"></div>
+      <span id="user-name-nav" style="font-weight:600;font-size:0.9rem;"></span>
+      <button class="btn btn-ghost btn-sm" data-action="logout">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="container">
+    <!-- Stats Row -->
+    <div class="grid-4 mb-28" id="stats-row" style="margin-bottom:28px;">
+      <div class="stat-card"><div class="stat-icon red">📥</div><div><div class="stat-value" id="stat-new">—</div><div class="stat-label">New Orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon orange">👨‍🍳</div><div><div class="stat-value" id="stat-active">—</div><div class="stat-label">In Progress</div></div></div>
+      <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value" id="stat-done">—</div><div class="stat-label">Delivered Today</div></div></div>
+      <div class="stat-card"><div class="stat-icon blue">💰</div><div><div class="stat-value" id="stat-rev">—</div><div class="stat-label">Today's Revenue</div></div></div>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="orders-kanban" id="kanban">
+      <div class="order-col">
+        <div class="col-header"><span>🕐 New Orders</span><span class="badge badge-placed" id="cnt-placed">0</span></div>
+        <div id="col-placed"><div class="text-muted text-sm" style="padding:20px;text-align:center;">No new orders</div></div>
+      </div>
+      <div class="order-col">
+        <div class="col-header"><span>👨‍🍳 Preparing</span><span class="badge badge-preparing" id="cnt-preparing">0</span></div>
+        <div id="col-preparing"><div class="text-muted text-sm" style="padding:20px;text-align:center;">Nothing preparing</div></div>
+      </div>
+      <div class="order-col">
+        <div class="col-header"><span>📦 Ready for Pickup</span><span class="badge badge-ready" id="cnt-ready">0</span></div>
+        <div id="col-ready"><div class="text-muted text-sm" style="padding:20px;text-align:center;">Nothing ready</div></div>
+      </div>
+      <div class="order-col">
+        <div class="col-header"><span>✅ Delivered</span><span class="badge badge-delivered" id="cnt-delivered">0</span></div>
+        <div id="col-delivered"><div class="text-muted text-sm" style="padding:20px;text-align:center;">None today</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  let restaurantId, allOrders = [];
+
+  async function init() {
+    const user = await requireAuth(['restaurant_owner']);
+    document.getElementById('user-name-nav').textContent = user.name;
+
+    const rest = await API.restaurants.my();
+    if (!rest) { toast('Restaurant profile not found', 'error'); return; }
+    restaurantId = rest.id;
+    renderToggle(rest);
+
+    await loadOrders();
+    setInterval(loadOrders, 20000); // auto-refresh
+  }
+
+  function renderToggle(rest) {
+    const el = document.getElementById('rest-open-toggle');
+    el.innerHTML = `
+      <label class="toggle-switch" title="Toggle open/closed">
+        <input type="checkbox" id="open-check" ${rest.is_open ? 'checked' : ''} onchange="toggleOpen()"/>
+        <div class="toggle-track"></div>
+        <span>${rest.is_open ? '🟢 Open' : '🔴 Closed'}</span>
+      </label>`;
+  }
+
+  async function toggleOpen() {
+    try {
+      const res = await API.restaurants.toggle(restaurantId);
+      const label = document.querySelector('#rest-open-toggle span');
+      label.textContent = res.is_open ? '🟢 Open' : '🔴 Closed';
+      toast(res.is_open ? 'Restaurant is now OPEN' : 'Restaurant is now CLOSED', 'info');
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function loadOrders() {
+    try {
+      allOrders = await API.orders.list();
+      renderKanban();
+      renderStats();
+    } catch {}
+  }
+
+  function renderStats() {
+    const today = new Date().toDateString();
+    const todayOrders = allOrders.filter(o => new Date(o.created_at).toDateString() === today);
+    document.getElementById('stat-new').textContent    = allOrders.filter(o => o.status === 'placed').length;
+    document.getElementById('stat-active').textContent = allOrders.filter(o => ['accepted','preparing'].includes(o.status)).length;
+    document.getElementById('stat-done').textContent   = todayOrders.filter(o => o.status === 'delivered').length;
+    const rev = todayOrders.filter(o => o.status === 'delivered').reduce((s,o) => s + parseFloat(o.total_amount), 0);
+    document.getElementById('stat-rev').textContent = '₹' + rev.toFixed(0);
+  }
+
+  function renderKanban() {
+    const cols = { placed: [], accepted: [], preparing: [], ready: [], out_for_delivery: [], delivered: [] };
+    allOrders.forEach(o => { if (cols[o.status] !== undefined) cols[o.status].push(o); });
+
+    // Merge accepted+preparing+out_for_delivery into 'preparing' col for display
+    const preparing = [...cols.accepted, ...cols.preparing];
+
+    render('placed',   cols.placed,   nextAction('placed'));
+    render('preparing',preparing,     null); // mixed next actions
+    render('ready',    cols.ready.concat(cols.out_for_delivery), null);
+    render('delivered',cols.delivered,null);
+
+    document.getElementById('cnt-placed').textContent    = cols.placed.length;
+    document.getElementById('cnt-preparing').textContent = preparing.length;
+    document.getElementById('cnt-ready').textContent     = cols.ready.length + cols.out_for_delivery.length;
+    document.getElementById('cnt-delivered').textContent = cols.delivered.length;
+  }
+
+  function nextAction(status) {
+    const map = { placed: { label: '✅ Accept', next: 'accepted' }, accepted: { label: '👨‍🍳 Start Preparing', next: 'preparing' }, preparing: { label: '📦 Mark Ready', next: 'ready' } };
+    return map[status];
+  }
+
+  function render(colId, orders, action) {
+    const el = document.getElementById('col-' + colId);
+    if (!orders.length) { el.innerHTML = '<div class="text-muted text-sm" style="padding:20px;text-align:center;">—</div>'; return; }
+    el.innerHTML = orders.map(o => {
+      const act = nextAction(o.status);
+      return `
+      <div class="rest-order-card">
+        <div class="flex-between">
+          <div style="font-weight:700;">#${o.id}</div>
+          ${statusBadgeHtml(o.status)}
+        </div>
+        <div style="font-size:0.85rem;margin:6px 0;">👤 ${o.customer_name || 'Customer'}</div>
+        <div style="font-size:0.82rem;color:var(--gray-3);">₹${parseFloat(o.total_amount).toFixed(0)} · ${timeAgo(o.created_at)}</div>
+        ${o.special_instructions ? `<div style="font-size:0.78rem;background:var(--bg);padding:6px 10px;border-radius:6px;margin-top:8px;color:var(--gray-2);">📝 ${o.special_instructions}</div>` : ''}
+        <div class="order-actions">
+          ${act ? `<button class="btn btn-sm btn-primary" onclick="updateStatus(${o.id},'${act.next}')">${act.label}</button>` : ''}
+          ${o.status === 'placed' ? `<button class="btn btn-sm btn-danger" onclick="updateStatus(${o.id},'cancelled')">Cancel</button>` : ''}
+          ${o.status === 'out_for_delivery' ? `<span class="badge badge-out_for_delivery">🛵 Rider on the way</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function updateStatus(orderId, status) {
+    try {
+      await API.orders.updateStatus(orderId, status);
+      const labels = { accepted:'✅ Accepted!', preparing:'👨‍🍳 Now preparing', ready:'📦 Ready for pickup!', cancelled:'❌ Cancelled' };
+      toast(labels[status] || 'Updated', 'success');
+      await loadOrders();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  init();
+</script>
+</body>
+</html>

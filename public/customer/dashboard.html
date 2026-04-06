@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Browse Restaurants — FoodRush</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .page-wrap { padding-top: calc(var(--navbar-height) + 16px); min-height: 100vh; }
+    .top-bar { background: white; border-bottom: 1px solid var(--gray-5); padding: 14px 0; position: sticky; top: var(--navbar-height); z-index: 500; }
+    .restaurant-count { font-size: 0.85rem; color: var(--gray-3); }
+    .sort-select { padding: 8px 14px; border: 1.5px solid var(--gray-4); border-radius: var(--radius-full); font-size: 0.85rem; outline: none; background: white; cursor: pointer; }
+  </style>
+</head>
+<body>
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/customer/dashboard.html" class="navbar-logo"><div class="logo-icon">🍱</div>Food<span>Rush</span></a>
+    <div class="search-bar" style="max-width:420px;flex:1;margin:0 24px;">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" placeholder="Search restaurants or cuisines…" autocomplete="off"/>
+    </div>
+    <div class="navbar-right">
+      <a href="/customer/orders.html" class="btn btn-ghost btn-sm">📋 My Orders</a>
+      <button class="btn btn-ghost btn-sm" id="cart-nav-btn" style="position:relative;">
+        🛒 Cart <span id="cart-nav-count" style="background:var(--primary);color:white;border-radius:50%;width:18px;height:18px;font-size:0.7rem;display:none;align-items:center;justify-content:center;position:absolute;top:-4px;right:-4px;"></span>
+      </button>
+      <div style="font-size:0.9rem;font-weight:600;" id="user-name-nav"></div>
+      <button class="btn btn-ghost btn-sm" data-action="logout">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <!-- Category scroll -->
+  <div style="background:white;border-bottom:1px solid var(--gray-5);padding:16px 0;">
+    <div class="container">
+      <div class="category-scroll" id="categories-bar">
+        <div class="category-item active" data-cuisine="" onclick="filterCuisine(this,'')">
+          <div class="category-icon-wrap">🍽️</div>
+          <div class="category-label">All</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="top-bar">
+    <div class="container flex-between">
+      <span class="restaurant-count" id="rest-count">Loading…</span>
+      <div class="flex gap-12">
+        <div class="filter-chips" id="filter-chips">
+          <div class="chip active" onclick="filterOpen(this,'')">All</div>
+          <div class="chip" onclick="filterOpen(this,'1')">Open Now</div>
+        </div>
+        <select class="sort-select" id="sort-select" onchange="loadRestaurants()">
+          <option value="rating">Top Rated</option>
+          <option value="delivery_time">Fastest Delivery</option>
+          <option value="newest">Newest</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restaurant Grid -->
+  <div class="container" style="padding: 28px 20px 80px;">
+    <div class="grid-auto" id="restaurant-grid">
+      <div style="padding:80px;text-align:center;grid-column:1/-1;"><div class="spinner" style="margin:auto;"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  let currentCuisine = '', currentOpen = '', searchTimeout;
+
+  async function init() {
+    const user = await requireAuth(['customer']);
+    document.getElementById('user-name-nav').textContent = '👤 ' + user.name;
+    updateCartNav();
+    await loadCategories();
+    await loadRestaurants();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('search')) {
+      document.getElementById('search-input').value = params.get('search');
+      loadRestaurants();
+    }
+  }
+
+  async function loadCategories() {
+    const cats = await API.categories.list();
+    const bar = document.getElementById('categories-bar');
+    cats.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'category-item';
+      div.dataset.cuisine = c.name;
+      div.innerHTML = `<div class="category-icon-wrap">${c.icon}</div><div class="category-label">${c.name}</div>`;
+      div.onclick = () => filterCuisine(div, c.name);
+      bar.appendChild(div);
+    });
+  }
+
+  async function loadRestaurants() {
+    const grid = document.getElementById('restaurant-grid');
+    grid.innerHTML = '<div style="padding:80px;text-align:center;grid-column:1/-1;"><div class="spinner" style="margin:auto;"></div></div>';
+    const params = {
+      sort: document.getElementById('sort-select').value,
+    };
+    const search = document.getElementById('search-input').value.trim();
+    if (search) params.search = search;
+    if (currentCuisine) params.cuisine = currentCuisine;
+
+    try {
+      let rests = await API.restaurants.list(params);
+      if (currentOpen === '1') rests = rests.filter(r => r.is_open);
+      document.getElementById('rest-count').textContent = `${rests.length} restaurant${rests.length !== 1 ? 's' : ''} found`;
+
+      if (!rests.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">🔍</div><h3>No restaurants found</h3><p>Try a different search or cuisine.</p></div>`;
+        return;
+      }
+      grid.innerHTML = rests.map(r => `
+        <div class="card restaurant-card fade-in" onclick="window.location='/customer/restaurant.html?id=${r.id}'">
+          <div class="restaurant-card-img-wrap">
+            <img class="restaurant-card-img" src="${r.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600'}" alt="${r.name}" loading="lazy"/>
+            <span class="restaurant-card-badge ${r.is_open ? '' : 'closed'}">${r.is_open ? 'OPEN' : 'CLOSED'}</span>
+          </div>
+          <div class="card-body">
+            <div class="restaurant-info">
+              <div class="restaurant-name">${r.name}</div>
+              <div class="rating-pill">⭐ ${parseFloat(r.rating || 0).toFixed(1)}</div>
+            </div>
+            <div class="cuisine-tag">${r.cuisine_type || 'Various'}</div>
+            <div class="restaurant-meta">
+              <span>⏱️ ${r.delivery_time} min</span>
+              <span>🛵 ₹${parseFloat(r.delivery_fee).toFixed(0)} delivery</span>
+              ${r.min_order > 0 ? `<span>Min ₹${parseFloat(r.min_order).toFixed(0)}</span>` : ''}
+            </div>
+          </div>
+        </div>`).join('');
+    } catch (err) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">⚠️</div><h3>Failed to load</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  function filterCuisine(el, cuisine) {
+    currentCuisine = cuisine;
+    document.querySelectorAll('.category-item').forEach(c => c.classList.toggle('active', c === el));
+    loadRestaurants();
+  }
+
+  function filterOpen(el, val) {
+    currentOpen = val;
+    document.querySelectorAll('#filter-chips .chip').forEach(c => c.classList.toggle('active', c === el));
+    loadRestaurants();
+  }
+
+  function updateCartNav() {
+    const count = Cart.count();
+    const btn   = document.getElementById('cart-nav-btn');
+    const badge = document.getElementById('cart-nav-count');
+    if (count > 0) { badge.textContent = count; badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+  }
+
+  document.getElementById('cart-nav-btn').addEventListener('click', () => {
+    if (Cart.count() > 0) window.location.href = '/customer/cart.html';
+    else toast('Your cart is empty', 'info');
+  });
+
+  document.getElementById('search-input').addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(loadRestaurants, 400);
+  });
+
+  init();
+</script>
+</body>
+</html>

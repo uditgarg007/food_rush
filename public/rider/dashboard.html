@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rider Dashboard — FoodRush</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .available-order-card {
+      background: white; border-radius: var(--radius-md); padding: 20px;
+      border: 2px solid var(--gray-5); box-shadow: var(--shadow-sm);
+      transition: all var(--t); margin-bottom: 16px;
+    }
+    .available-order-card:hover { border-color: var(--primary-light); box-shadow: var(--shadow-md); }
+    .current-delivery { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border-radius: var(--radius-md); padding: 24px; margin-bottom: 24px; }
+    .earnings-banner { background: linear-gradient(135deg, #1c1c1c, var(--dark-2)); color: white; border-radius: var(--radius-md); padding: 20px; }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/rider/dashboard.html" class="navbar-logo"><div class="logo-icon">🍱</div>Food<span>Rush</span></a>
+    <div class="navbar-nav">
+      <a href="/rider/dashboard.html" class="nav-link active">🛵 Dashboard</a>
+      <a href="/rider/history.html" class="nav-link">📋 History</a>
+    </div>
+    <div class="navbar-right">
+      <div id="avail-toggle" style="display:flex;align-items:center;gap:10px;font-size:0.85rem;font-weight:600;"></div>
+      <span id="rider-name" style="font-weight:600;font-size:0.9rem;"></span>
+      <button class="btn btn-ghost btn-sm" data-action="logout">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="container" style="max-width:860px;">
+
+    <!-- Earnings Banner -->
+    <div class="earnings-banner mb-24">
+      <div class="grid-4" style="gap:0;">
+        <div style="text-align:center;padding:4px 16px;border-right:1px solid rgba(255,255,255,0.15);">
+          <div style="font-size:1.5rem;font-weight:800;" id="stat-earnings">₹—</div>
+          <div style="font-size:0.78rem;opacity:0.7;">Total Earnings</div>
+        </div>
+        <div style="text-align:center;padding:4px 16px;border-right:1px solid rgba(255,255,255,0.15);">
+          <div style="font-size:1.5rem;font-weight:800;" id="stat-deliveries">—</div>
+          <div style="font-size:0.78rem;opacity:0.7;">Deliveries</div>
+        </div>
+        <div style="text-align:center;padding:4px 16px;border-right:1px solid rgba(255,255,255,0.15);">
+          <div style="font-size:1.5rem;font-weight:800;" id="stat-vehicle">—</div>
+          <div style="font-size:0.78rem;opacity:0.7;">Vehicle</div>
+        </div>
+        <div style="text-align:center;padding:4px 16px;">
+          <div style="font-size:1.5rem;font-weight:800;">₹49</div>
+          <div style="font-size:0.78rem;opacity:0.7;">Per Delivery</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Delivery -->
+    <div id="current-delivery" style="display:none;"></div>
+
+    <!-- Available Orders -->
+    <div class="flex-between mb-16">
+      <h2>Available Pickups</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadAvailable()" id="refresh-btn">🔄 Refresh</button>
+    </div>
+
+    <div id="available-container">
+      <div style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  let riderProfile, pollTimer;
+
+  async function init() {
+    const user = await requireAuth(['rider']);
+    document.getElementById('rider-name').textContent = '🛵 ' + user.name;
+    riderProfile = await API.rider.profile();
+    renderBanner(riderProfile);
+    renderAvailToggle(riderProfile);
+    await loadCurrentDelivery();
+    await loadAvailable();
+    pollTimer = setInterval(loadAvailable, 15000);
+  }
+
+  function renderBanner(r) {
+    document.getElementById('stat-earnings').textContent   = '₹' + parseFloat(r.total_earnings || 0).toFixed(0);
+    document.getElementById('stat-deliveries').textContent = r.deliveries_count || 0;
+    document.getElementById('stat-vehicle').textContent    = r.vehicle_type ? r.vehicle_type.charAt(0).toUpperCase() + r.vehicle_type.slice(1) : '—';
+  }
+
+  function renderAvailToggle(r) {
+    const el = document.getElementById('avail-toggle');
+    el.innerHTML = `
+      <label class="toggle-switch">
+        <input type="checkbox" ${r.is_available ? 'checked' : ''} onchange="toggleAvail()"/>
+        <div class="toggle-track"></div>
+        <span id="avail-label">${r.is_available ? '🟢 Available' : '🔴 Unavailable'}</span>
+      </label>`;
+  }
+
+  async function toggleAvail() {
+    try {
+      const res = await API.rider.toggleAvailability();
+      document.getElementById('avail-label').textContent = res.is_available ? '🟢 Available' : '🔴 Unavailable';
+      toast(res.is_available ? 'You are now available for deliveries' : 'You are now offline', 'info');
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function loadCurrentDelivery() {
+    try {
+      const myOrders = await API.orders.list();
+      const active   = myOrders.find(o => o.status === 'out_for_delivery');
+      const el = document.getElementById('current-delivery');
+      if (active) {
+        el.style.display = '';
+        el.innerHTML = `
+          <div class="current-delivery mb-24 slide-up">
+            <div style="font-size:0.82rem;opacity:0.8;margin-bottom:4px;">CURRENT DELIVERY</div>
+            <h3 style="margin-bottom:12px;">Order #${active.id} from ${active.restaurant_name}</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+              <div><div style="opacity:0.7;font-size:0.78rem;">Pickup From</div><div style="font-weight:600;">${active.restaurant_name}</div><div style="font-size:0.82rem;opacity:0.85;">${active.restaurant_address || ''}</div></div>
+              <div><div style="opacity:0.7;font-size:0.78rem;">Deliver To</div><div style="font-weight:600;">${active.customer_name || 'Customer'}</div><div style="font-size:0.82rem;opacity:0.85;">${active.delivery_address || ''}</div></div>
+            </div>
+            <button class="btn" style="background:white;color:var(--primary);font-weight:700;width:100%;padding:12px;" onclick="markDelivered(${active.id})">
+              ✅ Mark as Delivered
+            </button>
+          </div>`;
+      } else {
+        el.style.display = 'none';
+      }
+    } catch {}
+  }
+
+  async function loadAvailable() {
+    const container = document.getElementById('available-container');
+    const btn = document.getElementById('refresh-btn');
+    btn.textContent = '⏳ Loading…'; btn.disabled = true;
+    try {
+      const orders = await API.rider.availableOrders();
+      btn.textContent = '🔄 Refresh'; btn.disabled = false;
+
+      if (!orders.length) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🛵</div>
+            <h3>No orders available right now</h3>
+            <p>New orders from restaurants will appear here when they're ready for pickup. Stay tuned!</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = orders.map(o => `
+        <div class="available-order-card fade-in">
+          <div class="flex-between mb-12">
+            <div>
+              <div style="font-weight:800;font-size:1.05rem;">Order #${o.id}</div>
+              <div style="color:var(--gray-3);font-size:0.82rem;">${timeAgo(o.updated_at)}</div>
+            </div>
+            <div class="flex gap-8">
+              <span class="badge badge-primary" style="font-size:0.82rem;">₹49 earnings</span>
+              <span style="font-weight:800;color:var(--primary);">₹${parseFloat(o.total_amount).toFixed(0)}</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div>
+              <div class="text-xs text-muted mb-4">📍 Pickup</div>
+              <div style="font-weight:600;font-size:0.9rem;">${o.restaurant_name}</div>
+              <div style="font-size:0.8rem;color:var(--gray-3);">${o.restaurant_address || ''}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted mb-4">🏠 Drop-off</div>
+              <div style="font-weight:600;font-size:0.9rem;">${o.customer_name || 'Customer'}</div>
+              <div style="font-size:0.8rem;color:var(--gray-3);">${(o.delivery_address || '').substring(0,60)}${(o.delivery_address||'').length > 60 ? '…' : ''}</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;" onclick="acceptOrder(${o.id})">🛵 Accept Delivery</button>
+        </div>`).join('');
+    } catch (err) {
+      btn.textContent = '🔄 Refresh'; btn.disabled = false;
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Failed to load</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  async function acceptOrder(id) {
+    try {
+      await API.rider.acceptOrder(id);
+      toast('Order accepted! Go pick it up 🛵', 'success');
+      await loadCurrentDelivery();
+      await loadAvailable();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function markDelivered(id) {
+    if (!confirm('Mark this order as delivered?')) return;
+    try {
+      await API.rider.deliverOrder(id);
+      toast('🎉 Delivered! ₹49 added to your earnings.', 'success');
+      riderProfile = await API.rider.profile();
+      renderBanner(riderProfile);
+      await loadCurrentDelivery();
+      await loadAvailable();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  init();
+</script>
+</body>
+</html>

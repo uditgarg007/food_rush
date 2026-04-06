@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Restaurant Profile — FoodRush</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .profile-banner { width: 100%; height: 240px; object-fit: cover; border-radius: var(--radius-md) var(--radius-md) 0 0; }
+    .profile-banner-placeholder { width: 100%; height: 240px; background: linear-gradient(135deg,var(--primary),var(--primary-dark)); border-radius: var(--radius-md) var(--radius-md) 0 0; display: grid; place-items: center; font-size: 5rem; }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/restaurant/dashboard.html" class="navbar-logo"><div class="logo-icon">🍱</div>Food<span>Rush</span></a>
+    <div class="navbar-nav">
+      <a href="/restaurant/dashboard.html" class="nav-link">📋 Orders</a>
+      <a href="/restaurant/menu.html" class="nav-link">🍔 Menu</a>
+      <a href="/restaurant/profile.html" class="nav-link active">⚙️ Profile</a>
+    </div>
+    <div class="navbar-right">
+      <button class="btn btn-ghost btn-sm" data-action="logout">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="container" style="max-width:720px;">
+    <h1 class="mb-24">Restaurant Profile</h1>
+
+    <!-- Profile Card -->
+    <div class="card mb-24" id="profile-card">
+      <div id="banner-wrap">
+        <div class="profile-banner-placeholder" id="banner-placeholder">🍽️</div>
+      </div>
+      <div class="card-body" id="profile-view">
+        <div style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></div>
+      </div>
+    </div>
+
+    <!-- Edit Form Card -->
+    <div class="card" id="edit-form-card" style="display:none;">
+      <div class="card-header"><h3>Edit Restaurant Details</h3></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Restaurant Name *</label>
+          <input id="f-name" type="text" class="form-control"/>
+        </div>
+        <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Cuisine Type</label>
+            <input id="f-cuisine" type="text" class="form-control" placeholder="North Indian, Chinese…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input id="f-city" type="text" class="form-control" placeholder="Mumbai"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <textarea id="f-address" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea id="f-desc" class="form-control" rows="3" placeholder="Tell customers about your restaurant…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cover Image URL</label>
+          <input id="f-img" type="url" class="form-control" oninput="previewBanner()"/>
+          <img id="banner-preview" class="img-preview" src="" alt=""/>
+        </div>
+        <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Delivery Time (min)</label>
+            <input id="f-time" type="number" class="form-control" placeholder="30" min="5"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Delivery Fee (₹)</label>
+            <input id="f-fee" type="number" class="form-control" placeholder="30" min="0"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Min Order (₹)</label>
+            <input id="f-min" type="number" class="form-control" placeholder="0" min="0"/>
+          </div>
+        </div>
+        <div id="edit-error" style="color:var(--primary);font-size:0.85rem;margin-bottom:12px;display:none;"></div>
+        <div style="display:flex;gap:12px;">
+          <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveProfile()">Save Changes</button>
+          <button class="btn btn-ghost" onclick="toggleEditForm(false)">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  let restaurantId, restData;
+
+  async function init() {
+    await requireAuth(['restaurant_owner']);
+    restData = await API.restaurants.my();
+    if (!restData) { document.getElementById('profile-view').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>No restaurant profile found</h3><p>Please contact support.</p></div>'; return; }
+    restaurantId = restData.id;
+    renderProfile(restData);
+  }
+
+  function renderProfile(r) {
+    // Banner
+    const bannerWrap = document.getElementById('banner-wrap');
+    if (r.image_url) bannerWrap.innerHTML = `<img class="profile-banner" src="${r.image_url}" alt="${r.name}"/>`;
+    else             bannerWrap.innerHTML = `<div class="profile-banner-placeholder">🍽️</div>`;
+
+    const view = document.getElementById('profile-view');
+    view.innerHTML = `
+      <div class="flex-between flex-wrap gap-12">
+        <div>
+          <h2 style="font-size:1.5rem;">${r.name}</h2>
+          <div style="color:var(--gray-2);margin:4px 0;">${r.cuisine_type || 'Various cuisines'}</div>
+          <div class="flex gap-12 mt-8" style="font-size:0.85rem;flex-wrap:wrap;">
+            <span class="rating-pill">⭐ ${parseFloat(r.rating||0).toFixed(1)} (${r.review_count} reviews)</span>
+            <span>⏱️ ${r.delivery_time} min</span>
+            <span>🛵 ₹${parseFloat(r.delivery_fee).toFixed(0)} delivery</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end;">
+          <span class="${r.is_open ? 'badge badge-ready' : 'badge badge-cancelled'}">${r.is_open ? '🟢 Open' : '🔴 Closed'}</span>
+          <button class="btn btn-outline btn-sm" onclick="toggleEditForm(true)">✏️ Edit Profile</button>
+        </div>
+      </div>
+      ${r.description ? `<p style="margin-top:16px;">${r.description}</p>` : ''}
+      <hr class="divider"/>
+      <div class="grid-2" style="gap:16px;">
+        <div><div class="text-xs text-muted">Address</div><div style="margin-top:4px;font-size:0.9rem;">${r.address || '—'}</div></div>
+        <div><div class="text-xs text-muted">City</div><div style="margin-top:4px;font-size:0.9rem;">${r.city || '—'}</div></div>
+        <div><div class="text-xs text-muted">Min Order</div><div style="margin-top:4px;font-size:0.9rem;">₹${parseFloat(r.min_order||0).toFixed(0)}</div></div>
+      </div>
+      <hr class="divider"/>
+      <div>
+        <div style="font-weight:600;margin-bottom:12px;">Restaurant Status</div>
+        <div class="flex gap-12 align-items-center">
+          <label class="toggle-switch">
+            <input type="checkbox" id="open-toggle" ${r.is_open ? 'checked' : ''} onchange="toggleOpen()"/>
+            <div class="toggle-track"></div>
+          </label>
+          <span id="open-label" style="font-weight:600;">${r.is_open ? '🟢 Currently Open — accepting orders' : '🔴 Currently Closed'}</span>
+        </div>
+      </div>`;
+  }
+
+  async function toggleOpen() {
+    try {
+      const res = await API.restaurants.toggle(restaurantId);
+      document.getElementById('open-label').textContent = res.is_open ? '🟢 Currently Open — accepting orders' : '🔴 Currently Closed';
+      toast(res.is_open ? 'Restaurant is now open!' : 'Restaurant is closed', 'info');
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  function toggleEditForm(show) {
+    document.getElementById('edit-form-card').style.display = show ? '' : 'none';
+    if (show && restData) {
+      document.getElementById('f-name').value    = restData.name || '';
+      document.getElementById('f-cuisine').value = restData.cuisine_type || '';
+      document.getElementById('f-city').value    = restData.city || '';
+      document.getElementById('f-address').value = restData.address || '';
+      document.getElementById('f-desc').value    = restData.description || '';
+      document.getElementById('f-img').value     = restData.image_url || '';
+      document.getElementById('f-time').value    = restData.delivery_time || 30;
+      document.getElementById('f-fee').value     = restData.delivery_fee || 30;
+      document.getElementById('f-min').value     = restData.min_order || 0;
+      previewBanner();
+    }
+  }
+
+  async function saveProfile() {
+    const name = document.getElementById('f-name').value.trim();
+    if (!name) { showErr('Restaurant name is required'); return; }
+    const data = {
+      name,
+      cuisine_type:  document.getElementById('f-cuisine').value.trim() || undefined,
+      city:          document.getElementById('f-city').value.trim() || undefined,
+      address:       document.getElementById('f-address').value.trim() || undefined,
+      description:   document.getElementById('f-desc').value.trim() || undefined,
+      image_url:     document.getElementById('f-img').value.trim() || undefined,
+      delivery_time: parseInt(document.getElementById('f-time').value) || undefined,
+      delivery_fee:  parseFloat(document.getElementById('f-fee').value) || undefined,
+      min_order:     parseFloat(document.getElementById('f-min').value) || undefined,
+    };
+    try {
+      restData = await API.restaurants.update(restaurantId, data);
+      renderProfile(restData);
+      toggleEditForm(false);
+      toast('Profile updated! ✅', 'success');
+    } catch (err) { showErr(err.message); }
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('edit-error');
+    el.textContent = msg; el.style.display = '';
+  }
+
+  function previewBanner() {
+    const url = document.getElementById('f-img').value.trim();
+    const prev = document.getElementById('banner-preview');
+    if (url) { prev.src = url; prev.classList.add('visible'); }
+    else { prev.classList.remove('visible'); }
+  }
+
+  init();
+</script>
+</body>
+</html>

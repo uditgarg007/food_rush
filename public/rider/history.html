@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Delivery History — FoodRush</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    .history-card { background: white; border-radius: var(--radius-md); padding: 20px; border: 1px solid var(--gray-5); box-shadow: var(--shadow-xs); margin-bottom: 14px; transition: all var(--t); }
+    .history-card:hover { box-shadow: var(--shadow-sm); border-color: var(--gray-4); }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/rider/dashboard.html" class="navbar-logo"><div class="logo-icon">🍱</div>Food<span>Rush</span></a>
+    <div class="navbar-nav">
+      <a href="/rider/dashboard.html" class="nav-link">🛵 Dashboard</a>
+      <a href="/rider/history.html" class="nav-link active">📋 History</a>
+    </div>
+    <div class="navbar-right">
+      <button class="btn btn-ghost btn-sm" data-action="logout">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="container" style="max-width:720px;">
+    <div class="flex-between mb-24">
+      <h1>Delivery History</h1>
+      <div id="summary-badge" style="font-size:0.85rem;color:var(--gray-3);"></div>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="grid-3 mb-28" style="margin-bottom:28px;">
+      <div class="stat-card"><div class="stat-icon green">📦</div><div><div class="stat-value" id="total-del">—</div><div class="stat-label">Total Deliveries</div></div></div>
+      <div class="stat-card"><div class="stat-icon blue">💰</div><div><div class="stat-value" id="total-earn">—</div><div class="stat-label">Total Earned</div></div></div>
+      <div class="stat-card"><div class="stat-icon orange">⭐</div><div><div class="stat-value" id="avg-per">—</div><div class="stat-label">Avg per Delivery</div></div></div>
+    </div>
+
+    <div id="history-container">
+      <div style="text-align:center;padding:60px;"><div class="spinner" style="margin:auto;"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  async function init() {
+    await requireAuth(['rider']);
+    try {
+      const [history, profile] = await Promise.all([API.rider.history(), API.rider.profile()]);
+      renderStats(profile, history.length);
+      renderHistory(history);
+    } catch (err) {
+      document.getElementById('history-container').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Failed to load</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  function renderStats(profile, count) {
+    const earn = parseFloat(profile.total_earnings || 0);
+    document.getElementById('total-del').textContent  = profile.deliveries_count || count;
+    document.getElementById('total-earn').textContent = '₹' + earn.toFixed(0);
+    document.getElementById('avg-per').textContent    = profile.deliveries_count ? '₹' + (earn / profile.deliveries_count).toFixed(0) : '₹49';
+    document.getElementById('summary-badge').textContent = count + ' deliveries';
+  }
+
+  function renderHistory(history) {
+    const container = document.getElementById('history-container');
+    if (!history.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <h3>No deliveries yet</h3>
+          <p>Complete your first delivery to see your history here!</p>
+          <a href="/rider/dashboard.html" class="btn btn-primary mt-16">Find Orders</a>
+        </div>`;
+      return;
+    }
+
+    // Group by date
+    const grouped = {};
+    history.forEach(o => {
+      const d = new Date(o.updated_at).toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      if (!grouped[d]) grouped[d] = [];
+      grouped[d].push(o);
+    });
+
+    container.innerHTML = Object.entries(grouped).map(([date, orders]) => `
+      <div style="font-weight:700;font-size:0.85rem;color:var(--gray-3);margin:24px 0 12px;text-transform:uppercase;letter-spacing:0.5px;">${date}</div>
+      ${orders.map(o => `
+        <div class="history-card fade-in">
+          <div class="flex-between">
+            <div>
+              <div style="font-weight:700;font-size:1rem;">Order #${o.id}</div>
+              <div style="color:var(--gray-2);font-size:0.85rem;margin-top:4px;">
+                📍 ${o.restaurant_name || 'Restaurant'} → 🏠 ${o.customer_name || 'Customer'}
+              </div>
+              <div style="font-size:0.78rem;color:var(--gray-3);margin-top:4px;">${formatDate(o.updated_at)}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:1.2rem;font-weight:800;color:var(--accent-green);">+₹49</div>
+              <div style="font-size:0.78rem;color:var(--gray-3);">Order val: ₹${parseFloat(o.total_amount).toFixed(0)}</div>
+              <span class="badge badge-delivered" style="margin-top:6px;">✅ Delivered</span>
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:0.82rem;color:var(--gray-3);">📍 ${(o.delivery_address||'').substring(0,80)}</div>
+        </div>`).join('')}
+    `).join('');
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — FoodRush</title>
+  <meta name="description" content="Login or register on FoodRush as a customer, restaurant owner, or delivery rider."/>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <style>
+    body { background: var(--bg); overflow-x: hidden; }
+    .auth-page { min-height: 100vh; }
+    .role-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; background: var(--gray-5); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 24px; }
+    .role-tab {
+      padding: 10px; text-align: center; cursor: pointer; border-radius: 8px;
+      font-size: 0.82rem; font-weight: 600; color: var(--gray-2);
+      transition: all var(--t); border: none; background: none;
+    }
+    .role-tab.active { background: white; color: var(--primary); box-shadow: var(--shadow-xs); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .extra-fields { display: none; }
+    .extra-fields.show { display: block; }
+    .mode-toggle { text-align: center; margin-top: 20px; font-size: 0.9rem; color: var(--gray-2); }
+    .mode-toggle a { color: var(--primary); font-weight: 600; cursor: pointer; }
+    .auth-desc { font-size: 0.82rem; color: var(--gray-3); background: var(--bg); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 20px; }
+    .logo-big { font-size: 3rem; font-weight: 900; color: white; line-height: 1; }
+    .logo-big span { color: rgba(255,255,255,0.7); }
+    .auth-features { margin-top: 32px; display: flex; flex-direction: column; gap: 16px; }
+    .auth-feature { display: flex; align-items: center; gap: 12px; font-size: 0.95rem; opacity: 0.92; }
+    .divider-line { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--gray-3); font-size: 0.85rem; }
+    .divider-line::before, .divider-line::after { content: ''; flex: 1; height: 1px; background: var(--gray-4); }
+  </style>
+</head>
+<body>
+<div class="auth-page">
+  <!-- Left Brand Panel -->
+  <div class="auth-left">
+    <div>
+      <div class="logo-big">🍱 Food<span>Rush</span></div>
+      <p style="margin-top:16px;font-size:1.15rem;opacity:0.9;max-width:320px;line-height:1.7;">
+        Discover amazing food from restaurants near you, delivered to your door.
+      </p>
+      <div class="auth-features">
+        <div class="auth-feature">✅ <span>Free delivery on your first order</span></div>
+        <div class="auth-feature">✅ <span>Real-time order tracking</span></div>
+        <div class="auth-feature">✅ <span>500+ partner restaurants</span></div>
+        <div class="auth-feature">✅ <span>Earn while you ride with us</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Auth Panel -->
+  <div class="auth-right">
+    <div style="max-width: 440px; width: 100%; margin: 0 auto;">
+      <a href="/" style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);margin-bottom:32px;font-size:0.9rem;">← Back to Home</a>
+
+      <h2 id="auth-heading">Welcome back!</h2>
+      <p style="margin:8px 0 28px;color:var(--gray-2);" id="auth-subtext">Login to order food, manage your restaurant, or start delivering.</p>
+
+      <!-- Mode Toggle -->
+      <div id="mode-tabs" style="display:flex;gap:4px;margin-bottom:28px;background:var(--gray-5);border-radius:var(--radius-full);padding:4px;">
+        <button class="tab-btn active" id="btn-login"    onclick="setMode('login')">Login</button>
+        <button class="tab-btn"        id="btn-register" onclick="setMode('register')">Create Account</button>
+      </div>
+
+      <!-- Register: Role Selection -->
+      <div id="role-selection" style="display:none;" class="mb-24">
+        <p class="form-label">I am a…</p>
+        <div class="role-tabs">
+          <button class="role-tab active" id="rt-customer"   onclick="setRole('customer')">👤 Customer</button>
+          <button class="role-tab"        id="rt-restaurant" onclick="setRole('restaurant_owner')">🏪 Restaurant</button>
+          <button class="role-tab"        id="rt-rider"      onclick="setRole('rider')">🛵 Rider</button>
+        </div>
+        <div class="auth-desc" id="role-desc">Order food from your favourite restaurants.</div>
+      </div>
+
+      <!-- Form -->
+      <form id="auth-form" novalidate>
+        <!-- Common register fields -->
+        <div id="register-fields" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="name">Full Name *</label>
+              <input id="name" name="name" type="text" class="form-control" placeholder="Priya Sharma" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="phone">Phone</label>
+              <input id="phone" name="phone" type="tel" class="form-control" placeholder="9876543210"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address *</label>
+          <input id="email" name="email" type="email" class="form-control" placeholder="you@example.com" required autocomplete="email"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password *</label>
+          <input id="password" name="password" type="password" class="form-control" placeholder="••••••••" required autocomplete="current-password"/>
+        </div>
+
+        <!-- Restaurant-specific fields -->
+        <div id="restaurant-fields" class="extra-fields">
+          <div class="divider-line">Restaurant Details</div>
+          <div class="form-group">
+            <label class="form-label" for="restaurant_name">Restaurant Name *</label>
+            <input id="restaurant_name" name="restaurant_name" type="text" class="form-control" placeholder="Spice Garden"/>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="cuisine_type">Cuisine Type</label>
+              <input id="cuisine_type" name="cuisine_type" type="text" class="form-control" placeholder="North Indian, Pizza…"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="city">City</label>
+              <input id="city" name="city" type="text" class="form-control" placeholder="Mumbai"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="address">Restaurant Address</label>
+            <input id="address" name="address" type="text" class="form-control" placeholder="123 MG Road, Bengaluru"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="image_url">Cover Image URL</label>
+            <input id="image_url" name="image_url" type="url" class="form-control" placeholder="https://…"/>
+          </div>
+        </div>
+
+        <!-- Rider-specific fields -->
+        <div id="rider-fields" class="extra-fields">
+          <div class="divider-line">Rider Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="vehicle_type">Vehicle Type</label>
+              <select id="vehicle_type" name="vehicle_type" class="form-control form-select">
+                <option value="motorcycle">Motorcycle</option>
+                <option value="scooter">Scooter</option>
+                <option value="bicycle">Bicycle</option>
+                <option value="car">Car</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="vehicle_number">Vehicle Number</label>
+              <input id="vehicle_number" name="vehicle_number" type="text" class="form-control" placeholder="MH-12-AB-1234"/>
+            </div>
+          </div>
+        </div>
+
+        <div id="error-msg" style="color:var(--primary);font-size:0.88rem;margin-bottom:12px;display:none;padding-left:4px;"></div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;" id="submit-btn">
+          Login
+        </button>
+      </form>
+
+      <div class="mode-toggle">
+        <span id="mode-hint-text">Don't have an account?</span>
+        <a onclick="setMode('register')" id="mode-hint-link"> Sign up free</a>
+      </div>
+
+      <div class="divider-line" style="margin-top:28px;">Demo accounts</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;">
+        <button class="btn btn-ghost btn-sm" style="border:1px solid var(--gray-4);font-size:0.78rem;" onclick="fillDemo('customer@demo.com')">👤 Customer</button>
+        <button class="btn btn-ghost btn-sm" style="border:1px solid var(--gray-4);font-size:0.78rem;" onclick="fillDemo('restaurant@demo.com')">🏪 Restaurant</button>
+        <button class="btn btn-ghost btn-sm" style="border:1px solid var(--gray-4);font-size:0.78rem;" onclick="fillDemo('rider@demo.com')">🛵 Rider</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  let mode = 'login', role = 'customer';
+
+  function setMode(m) {
+    mode = m;
+    const isLogin = m === 'login';
+    document.getElementById('auth-heading').textContent = isLogin ? 'Welcome back!' : 'Create your account';
+    document.getElementById('auth-subtext').textContent = isLogin
+      ? 'Login to order food, manage your restaurant, or start delivering.'
+      : 'Join FoodRush — it\'s free!';
+    document.getElementById('register-fields').style.display = isLogin ? 'none' : '';
+    document.getElementById('role-selection').style.display  = isLogin ? 'none' : '';
+    document.getElementById('submit-btn').textContent        = isLogin ? 'Login' : 'Create Account';
+    document.getElementById('btn-login').classList.toggle('active', isLogin);
+    document.getElementById('btn-register').classList.toggle('active', !isLogin);
+    document.getElementById('mode-hint-text').textContent    = isLogin ? "Don't have an account?" : 'Already have an account?';
+    document.getElementById('mode-hint-link').textContent    = isLogin ? ' Sign up free' : ' Login';
+    document.getElementById('mode-hint-link').onclick        = () => setMode(isLogin ? 'register' : 'login');
+    if (!isLogin) { setRole(role); } else { hideExtraFields(); }
+    document.getElementById('error-msg').style.display = 'none';
+  }
+
+  function hideExtraFields() {
+    document.getElementById('restaurant-fields').classList.remove('show');
+    document.getElementById('rider-fields').classList.remove('show');
+  }
+
+  const roleDescs = {
+    customer: 'Order food from your favourite restaurants.',
+    restaurant_owner: 'List your restaurant and manage orders.',
+    rider: 'Deliver orders and earn money on your schedule.',
+  };
+
+  function setRole(r) {
+    role = r;
+    document.getElementById('role-desc').textContent = roleDescs[r];
+    ['customer','restaurant','rider'].forEach(k => {
+      document.getElementById('rt-' + k).classList.toggle('active', (k === 'restaurant' ? 'restaurant_owner' : k) === r);
+    });
+    document.getElementById('restaurant-fields').classList.toggle('show', r === 'restaurant_owner');
+    document.getElementById('rider-fields').classList.toggle('show', r === 'rider');
+  }
+
+  function fillDemo(email) {
+    setMode('login');
+    document.getElementById('email').value    = email;
+    document.getElementById('password').value = 'password123';
+  }
+
+  document.getElementById('auth-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    const errEl = document.getElementById('error-msg');
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = mode === 'login' ? 'Logging in…' : 'Creating account…';
+
+    const data = {
+      email:    document.getElementById('email').value.trim(),
+      password: document.getElementById('password').value,
+    };
+
+    if (mode === 'register') {
+      data.name  = document.getElementById('name').value.trim();
+      data.phone = document.getElementById('phone').value.trim();
+      data.role  = role;
+      if (role === 'restaurant_owner') {
+        data.restaurant_name = document.getElementById('restaurant_name').value.trim();
+        data.cuisine_type    = document.getElementById('cuisine_type').value.trim();
+        data.address         = document.getElementById('address').value.trim();
+        data.city            = document.getElementById('city').value.trim();
+        data.image_url       = document.getElementById('image_url').value.trim();
+      }
+      if (role === 'rider') {
+        data.vehicle_type   = document.getElementById('vehicle_type').value;
+        data.vehicle_number = document.getElementById('vehicle_number').value.trim();
+      }
+    }
+
+    try {
+      let user;
+      if (mode === 'login') {
+        const res = await API.auth.login(data);
+        user = res.user;
+      } else {
+        const res = await API.auth.register(data);
+        user = res.user;
+      }
+      toast('Welcome, ' + user.name + '! 🎉', 'success');
+      setTimeout(() => redirectByRole(user.role), 800);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = mode === 'login' ? 'Login' : 'Create Account';
+    }
+  });
+
+  // Check URL params for pre-fill
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('tab') === 'register') setMode('register');
+  if (params.get('role')) setRole(params.get('role'));
+
+  // Redirect if already logged in
+  API.auth.me().then(user => redirectByRole(user.role)).catch(() => {});
+</script>
+</body>
+</html>
