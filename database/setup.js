@@ -70,6 +70,13 @@ async function setup() {
   const [cats] = await conn.query('SELECT id, name FROM categories');
   cats.forEach(c => catMap[c.name] = c.id);
 
+  // --- Skip restaurants/menu if already seeded ---
+  const [[{ cnt: restCount }]] = await conn.query('SELECT COUNT(*) AS cnt FROM restaurants');
+  if (restCount > 0) {
+    console.log('⚠️   Restaurants already exist — skipping restaurant & menu seed (prevents duplicates)');
+    console.log('    To re-seed, manually DELETE FROM menu_items, restaurants first.');
+  } else {
+
   // --- Restaurants ---
   const restaurants = [
     [rest1Id, 'Spice Garden', 'North Indian',
@@ -148,6 +155,7 @@ async function setup() {
     [rider2Id, 'scooter', 'MH-12CD-6789']
   );
   console.log('✅  Riders created');
+  } // end of restaurant/menu seed block
 
   await conn.end();
 

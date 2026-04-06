@@ -124,7 +124,7 @@
         <div class="status-tracker" style="margin-top:16px;">
           ${STATUS_STEPS.map((s, i) => {
             const idx = STATUS_STEPS.indexOf(o.status);
-            const cls = idx > i ? 'done' : idx === i ? 'active' : '';
+            const cls = i < idx ? 'done' : (i === idx ? (o.status === 'delivered' ? 'done' : 'active') : '');
             const icons = { placed:'🕐', accepted:'✅', preparing:'👨‍🍳', ready:'📦', out_for_delivery:'🛵', delivered:'🏠' };
             const labels = { placed:'Placed', accepted:'Accepted', preparing:'Preparing', ready:'Ready', out_for_delivery:'On the way', delivered:'Delivered' };
             return `<div class="status-step ${cls}"><div class="step-icon">${icons[s]}</div><div class="step-label">${labels[s]}</div></div>`;
@@ -134,11 +134,22 @@
         <!-- Expandable Detail -->
         <div class="order-detail" id="detail-${o.id}">
           <div style="font-weight:600;margin-bottom:10px;">Items</div>
-          <div id="items-${o.id}"><div style="color:var(--gray-3);font-size:0.85rem;">Loading…</div></div>
-          <div class="flex-between mt-16">
-            <span style="color:var(--gray-2);">Delivery Address</span>
-            <span style="font-size:0.85rem;text-align:right;max-width:60%;">${o.delivery_address || '—'}</span>
+          <div id="items-${o.id}"><div class="spinner" style="width:24px;height:24px;border-width:2px;margin:8px 0;"></div></div>
+          <hr class="divider" style="margin:12px 0;"/>
+          <div class="flex-between">
+            <span style="color:var(--gray-2);">Delivery fee</span>
+            <span style="font-size:0.85rem;">₹${parseFloat(o.delivery_fee||30).toFixed(0)}</span>
           </div>
+          <div class="flex-between" style="font-weight:700;margin-top:6px;">
+            <span>Order Total</span>
+            <span style="color:var(--primary);">₹${parseFloat(o.total_amount).toFixed(0)}</span>
+          </div>
+          <hr class="divider" style="margin:12px 0;"/>
+          <div class="flex-between">
+            <span style="color:var(--gray-2);">Delivery Address</span>
+            <span style="font-size:0.82rem;text-align:right;max-width:55%;color:var(--gray-1);">${o.delivery_address || '—'}</span>
+          </div>
+          ${o.special_instructions ? `<div class="flex-between" style="margin-top:8px;"><span style="color:var(--gray-2);">Note</span><span style="font-size:0.82rem;text-align:right;max-width:55%;color:var(--gray-1);">${o.special_instructions}</span></div>` : ''}
         </div>
       </div>`).join('');
   }
@@ -146,20 +157,24 @@
   async function toggleOrder(id) {
     const detail = document.getElementById('detail-' + id);
     detail.classList.toggle('open');
-    if (detail.classList.contains('open')) {
-      const itemsEl = document.getElementById('items-' + id);
-      try {
-        const order = await API.orders.get(id);
-        itemsEl.innerHTML = order.items.map(i => `
+    if (!detail.classList.contains('open')) return;
+    const itemsEl = document.getElementById('items-' + id);
+    if (itemsEl.dataset.loaded) return; // already loaded — don't refetch
+    try {
+      const order = await API.orders.get(id);
+      const items = order.items || [];
+      if (!items.length) {
+        itemsEl.innerHTML = '<div style="color:var(--gray-3);font-size:0.85rem;padding:4px 0;">No item details found.</div>';
+      } else {
+        itemsEl.innerHTML = items.map(i => `
           <div class="order-item-row">
-            <span>${i.is_veg ? '🟢' : '🔴'} ${i.item_name} × ${i.quantity}</span>
-            <span style="font-weight:600;">₹${(i.price_at_time * i.quantity).toFixed(0)}</span>
-          </div>`).join('') +
-          `<div class="order-item-row" style="font-weight:700;border-top:2px solid var(--gray-4);margin-top:8px;padding-top:8px;">
-            <span>Total (incl. delivery)</span>
-            <span style="color:var(--primary);">₹${parseFloat(order.total_amount).toFixed(0)}</span>
-          </div>`;
-      } catch { itemsEl.innerHTML = '<p style="color:var(--gray-3);">Failed to load items.</p>'; }
+            <span>${i.is_veg ? '🟢' : '🔴'} ${i.item_name} <span style="color:var(--gray-3);">× ${i.quantity}</span></span>
+            <span style="font-weight:600;">₹${(parseFloat(i.price_at_time) * i.quantity).toFixed(0)}</span>
+          </div>`).join('');
+      }
+      itemsEl.dataset.loaded = '1';
+    } catch (err) {
+      itemsEl.innerHTML = `<div style="color:var(--gray-3);font-size:0.85rem;padding:4px 0;">Could not load items — ${err.message}</div>`;
     }
   }
 

@@ -8,6 +8,7 @@ const restaurantRoutes = require('./routes/restaurants');
 const orderRoutes      = require('./routes/orders');
 const riderRoutes      = require('./routes/riders');
 const reviewRoutes     = require('./routes/reviews');
+const addressRoutes    = require('./routes/addresses');
 const pool             = require('./db');
 
 const app  = express();
@@ -33,6 +34,7 @@ app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/orders',      orderRoutes);
 app.use('/api/rider',       riderRoutes);
 app.use('/api/reviews',     reviewRoutes);
+app.use('/api/addresses',   addressRoutes);
 
 // Categories
 app.get('/api/categories', async (req, res) => {

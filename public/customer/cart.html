@@ -62,14 +62,26 @@
 
         <!-- Delivery Address -->
         <div class="card mb-24">
-          <div class="card-header">
+          <div class="card-header flex-between">
             <h3>Delivery Address</h3>
+            <span style="font-size:0.78rem;color:var(--gray-3);" id="saved-addr-hint"></span>
           </div>
           <div class="card-body">
-            <div class="form-group">
+            <!-- Saved address chips -->
+            <div id="saved-addresses" style="display:none;margin-bottom:16px;">
+              <p style="font-size:0.82rem;font-weight:600;color:var(--gray-2);margin-bottom:10px;">📍 Saved addresses — click to use:</p>
+              <div id="addr-chips" style="display:flex;flex-direction:column;gap:8px;"></div>
+              <hr class="divider"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
               <label class="form-label" for="delivery-address">Full Delivery Address *</label>
               <textarea id="delivery-address" class="form-control" rows="3" placeholder="Flat 4B, Sunrise Apartments, MG Road, Bengaluru 560001"></textarea>
             </div>
+            <label class="toggle-switch" style="margin-top:12px;cursor:pointer;">
+              <input type="checkbox" id="save-addr-check" checked/>
+              <div class="toggle-track"></div>
+              <span style="font-size:0.85rem;color:var(--gray-2);">Save this address for next time</span>
+            </label>
           </div>
         </div>
 
@@ -131,6 +143,47 @@
     renderCart();
     await fetchDeliveryFee();
     renderSummary();
+    loadSavedAddresses();
+  }
+
+  async function loadSavedAddresses() {
+    try {
+      const addrs = await API.addresses.list();
+      const container = document.getElementById('saved-addresses');
+      const chips     = document.getElementById('addr-chips');
+      const hint      = document.getElementById('saved-addr-hint');
+      if (!addrs.length) return;
+      container.style.display = '';
+      hint.textContent = addrs.length + ' saved';
+      chips.innerHTML = addrs.map(a => `
+        <div class="address-saved" id="addr-chip-${a.id}" onclick="selectAddress('${a.street.replace(/'/g,"\\'").replace(/"/g,'&quot;')}', ${a.id})">
+          <span style="font-size:1.2rem;">📍</span>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:0.88rem;">${a.label}</div>
+            <div style="font-size:0.82rem;color:var(--gray-2);">${a.street}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="color:var(--primary);padding:4px 8px;" onclick="event.stopPropagation();deleteAddress(${a.id})">✕</button>
+        </div>`).join('');
+    } catch {}
+  }
+
+  function selectAddress(street, id) {
+    document.getElementById('delivery-address').value = street;
+    document.querySelectorAll('.address-saved').forEach(el => el.classList.remove('selected'));
+    const chip = document.getElementById('addr-chip-' + id);
+    if (chip) chip.classList.add('selected');
+    document.getElementById('save-addr-check').checked = false; // already saved
+  }
+
+  async function deleteAddress(id) {
+    try {
+      await API.addresses.delete(id);
+      const chip = document.getElementById('addr-chip-' + id);
+      if (chip) chip.remove();
+      const remaining = document.querySelectorAll('.address-saved').length;
+      if (!remaining) document.getElementById('saved-addresses').style.display = 'none';
+      toast('Address removed', 'info', 1500);
+    } catch (err) { toast(err.message, 'error'); }
   }
 
   async function fetchDeliveryFee() {
@@ -193,8 +246,9 @@
 
   document.getElementById('place-order-btn').addEventListener('click', async () => {
     cart = Cart.get();
-    const address = document.getElementById('delivery-address').value.trim();
-    const notes   = document.getElementById('special-instructions').value.trim();
+    const address  = document.getElementById('delivery-address').value.trim();
+    const notes    = document.getElementById('special-instructions').value.trim();
+    const saveAddr = document.getElementById('save-addr-check').checked;
     if (!address) { toast('Please enter your delivery address', 'error'); return; }
     if (!cart || !cart.items.length) { toast('Your cart is empty', 'error'); return; }
 
@@ -208,6 +262,12 @@
         delivery_address: address,
         special_instructions: notes || undefined,
       });
+
+      // Auto-save address if checked
+      if (saveAddr) {
+        API.addresses.save({ label: 'Home', street: address }).catch(() => {});
+      }
+
       Cart.clear();
       toast('Order placed successfully! 🎉', 'success');
       setTimeout(() => { window.location.href = `/customer/orders.html?highlight=${order.id}`; }, 900);

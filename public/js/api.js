@@ -54,5 +54,10 @@ const API = (() => {
     categories: {
       list: () => request('/categories'),
     },
+    addresses: {
+      list:   ()    => request('/addresses'),
+      save:   (d)   => request('/addresses', { method: 'POST', body: JSON.stringify(d) }),
+      delete: (id)  => request(`/addresses/${id}`, { method: 'DELETE' }),
+    },
   };
 })();
