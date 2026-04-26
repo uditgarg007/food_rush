@@ -50,5 +50,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀  Server running → http://localhost:${PORT}\n`);
+  console.log(`\n   Server running → http://localhost:${PORT}\n`);
 });
